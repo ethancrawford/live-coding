@@ -1,5 +1,6 @@
-# This is part two of the code - mostly the actual musical data
-# Part one needs to be triggered with Run first, then this one.
+# This file is part two of the code - mostly the actual musical data.
+# Parts one and two both need to be placed in separate buffers in Sonic Pi.
+# Part one needs to be triggered with Run first, then this one also.
 
 bpm = 140
 use_bpm bpm
@@ -116,7 +117,7 @@ elec_flip_level = 0
 elec_hollow_kick_level = 0#1
 
 # :splash_delay was created to calculate the precise amount of time
-# necessary to sleep before triggering the 'splash/whoosh' noise 
+# necessary to sleep before triggering the 'splash/whoosh' noise
 # in order to have its mid-point align exactly with the beginning of
 # a new bar or song segment etc.
 define :splash_delay do |pattern_length|

@@ -1,7 +1,9 @@
-# This is part one of the code, mostly the utility functions
-# that enable musical sequencing and playing. 
-# Trigger Run on this part first, then part 2.
-
+# This file is part one of the code, mostly the utility functions
+# that enable musical sequencing and playing.
+# Parts one and two both need to be placed in separate buffers in Sonic Pi.
+# Trigger Run on this part first, then on part two.
+# A video of the code in action is at https://vimeo.com/133740686
+  
 require 'mathn'
 
 tp = 1
@@ -89,7 +91,7 @@ end
 
 # :pl_smp plays a given sample with a given pattern, each hit separated by a given delay,
 # Altering the sample if any sample parameters are specified, and shuffling 'hits'
-# or amplitudes if specified. 
+# or amplitudes if specified.
 define :pl_smp do |smp, pattern, params = {}, shuffle_hits, shuffle_amps, delay|
   pattern[:hit_list] = pattern[:hit_list].shuffle if shuffle_hits
   pattern[:amp_list] = pattern[:amp_list].shuffle if shuffle_amps
