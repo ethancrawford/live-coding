@@ -1,0 +1,101 @@
+# This is part one of the code, mostly the utility functions
+# that enable musical sequencing and playing. 
+# Trigger Run on this part first, then part 2.
+
+require 'mathn'
+
+tp = 1
+
+# Methods for timing and playing the sequences
+
+define :do_sleep do
+  sleep tp
+end
+
+# Basic loop keeping the beat
+live_loop :metro do
+  do_sleep
+end
+
+define :audible do |level|
+  level > 0
+end
+
+define :patt_length do |pattern|
+  pattern[:dur_list].reduce(0, :+)
+end
+
+# :ctl_slide takes a variable representing a playing synth, sample or effect
+# and a list of slide values, and slides the parameters in the list,
+# where an example of slide_list is:
+#  slide_list = [
+#    {
+#      param: "cutoff", values: [
+#        {dur: 4, end_value: 30},
+#        {dur: 4, end_value: 100}
+#      ]
+#    }
+#  ]
+define :ctl_slide do |ctl_focus, slide_list|
+  slide_list.each_with_index do |slide, si|
+    in_thread(name: "control_#{ctl_focus.id}_#{si}") do
+      slide[:values].each do |val|
+        control ctl_focus, {"#{slide[:param]}_slide": val[:dur]}
+        control ctl_focus, {"#{slide[:param]}": val[:end_value]}
+        sleep val[:dur]
+      end
+    end
+  end
+end
+
+# :pl_synth takes a list of synths, a musical pattern, and an optional list of slide values
+# similar to the one specified above, and uses each synth to simultaneously play
+# the specified pattern, sliding the slide values if present.
+define :pl_synth do |synth_list, pattern, slide_list = nil|
+  pattern[:note_list].zip(pattern[:dur_list], pattern[:amp_list]) do |note, dur, amp|
+    synth_list.each_with_index do |s, i|
+      with_synth s[:synth] do
+        attack = dur * 0
+        sustain = dur * 1
+        release = dur * 0
+        new_amp = amp
+        attack = s[:params][:attack] * dur if s[:params].has_key?(:attack)
+        sustain = s[:params][:sustain] * dur if s[:params].has_key?(:sustain)
+        release = s[:params][:release] * dur if s[:params].has_key?(:release)
+
+        if s[:params].has_key?(:amp)
+          new_amp *= s[:params][:amp]
+        else
+          new_amp /= synth_list.length
+        end
+        dur = attack + sustain + release
+
+        with_synth_defaults s[:params], attack: attack, sustain: sustain, release: release do
+          out = if note.respond_to?(:each)
+            play_chord note, amp: amp
+          else
+            play note, amp: new_amp
+          end
+
+          if !rest?(note) && !slide_list.nil?
+            ctl_slide(out, slide_list)
+          end
+        end
+      end
+    end
+    sleep dur
+  end
+end
+
+# :pl_smp plays a given sample with a given pattern, each hit separated by a given delay,
+# Altering the sample if any sample parameters are specified, and shuffling 'hits'
+# or amplitudes if specified. 
+define :pl_smp do |smp, pattern, params = {}, shuffle_hits, shuffle_amps, delay|
+  pattern[:hit_list] = pattern[:hit_list].shuffle if shuffle_hits
+  pattern[:amp_list] = pattern[:amp_list].shuffle if shuffle_amps
+
+  pattern[:hit_list].zip(pattern[:amp_list]) do |val, amp|
+    sample smp, params, amp: amp if val == 1
+    sleep delay
+  end
+end

@@ -1,0 +1,320 @@
+# This is part two of the code - mostly the actual musical data
+# Part one needs to be triggered with Run first, then this one.
+
+bpm = 140
+use_bpm bpm
+use_random_seed 96487
+use_cue_logging false
+
+# Sample and synth musical pattern data
+# For samples, consisting of an array of 'hits'
+# and an array of their corresponding amplitudes.
+# Synth patterns have arrays of notes, durations and amplitudes.
+perc_length = 12
+bass_drum_patt = {
+  hit_list: [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  amp_list: knit(0.5, 11, 0.2, 1)
+}
+bass_drum_length = (3 * (perc_length * (1/3)))
+
+elec_flip_patt = {
+  hit_list: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  amp_list: Array.new(perc_length){rrand(0.5,1)}
+}
+
+elec_hollow_kick_patt = {
+  hit_list: [0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0],
+  amp_list: [0, 0, 0, 0, 0, 0, 0.7, 0, 0, 0.7, 0.2, 0],
+}
+
+arp_patt = {
+  note_list: [:e3, :fs3, :g3, :b3, :fs4, :g4, :b4, :r],
+  dur_list: knit(1/3, 7, 5/3, 1),
+  amp_list: [0.7] * 8
+}
+
+arp_patt2 = {
+  note_list: [:e3, :fs3, :g3, :b3, :fs4, :g4, :d5, :r],
+  dur_list: knit(1/3, 7, 5/3, 1),
+  amp_list: [0.7] * 8
+}
+
+arp_patt3 = {
+  note_list: [:e3, :fs3, :g3, :b3, :fs4, :g4, :d5, :r, :e5, :r],
+  dur_list: knit(1/3, 9, 1, 1),
+  amp_list: [0.7] * 10
+}
+
+arp_patt4 = {
+  note_list: [:e3, :fs3, :g3, :b3, :fs4, :g4, :d5, :e5, :r, :fs5, :e5, :r],
+  dur_list: [1/3] * 12,
+  amp_list: [0.7] * 12
+}
+arp_length = patt_length(arp_patt)
+
+pad_patt = {
+  note_list: [:e4],
+  dur_list: [16],
+  amp_list: [0.4]
+}
+pad_length = patt_length(pad_patt)
+
+breath_patt = {
+  note_list: [[:b3, :e4], [:a3, :g4]],
+  dur_list: [16, 16],
+  amp_list: [0.5, 0.4]
+}
+breath_length = patt_length(breath_patt)
+
+mod_pad_patt = {
+  note_list: [[:b4, :g4], [:a4, :fs4], [:e4, :a3], [:fs4, :g3], [:g4, :fs3]],
+  dur_list: [8, 8, 46/3, 1/3, 1/3],
+  amp_list: [0.5] * 5
+}
+mod_pad_length = patt_length(mod_pad_patt)
+
+bass_sine_patt = {
+  note_list: knit(:e3, 24, :b2, 24),
+  dur_list: knit(1/3, 48),
+  amp_list: knit(0.5, 48)
+}
+bass_sine_length = patt_length(bass_sine_patt)
+
+melody3_patt = {
+  note_list: knit(:r, 1, :b3, 1, :r, 1),
+  dur_list: knit(4, 1, 1/3, 6, 2/3, 3),
+  amp_list: knit(0.5, 10)
+}
+bitcrushed_melody_patt = {
+  note_list: [:r, [:b3] * 6, :e5, :d4, :d5, :d4, :b4, :b3, :g4, :fs4, :e4, :fs4, :g4, :fs4   ].flatten,
+  dur_list: knit(2, 1, 1/3, 12, 2/3, 1, 1/3, 4, 8, 1),
+  amp_list: knit(0.5, 19)
+}
+sine_melody_patt = {
+  note_list: [:e4, :d4, :b3, :fs4, :g4, :a4, :g4, :fs4],
+  dur_list: knit(2, 3, 1, 2, 1/3, 2, 22/3, 1),
+  amp_list: knit(0.5, 9)
+}
+sine_melody_length = patt_length(sine_melody_patt)
+
+sine_melody2_patt = {
+  note_list: [:g4, :fs4, :e4, :b3, :e4, :d4, :e4, :fs4],
+  dur_list: knit(2, 3, 1, 2, 1/3, 2, 22/3, 1),
+  amp_list: knit(0.5, 9)
+}
+
+# Audio "mixer" - used to bring in or silence the various 'instruments'
+arp_level = 0#1
+pad_level = 0#1.3
+breath_level = 0#1.3
+mod_pad_level = 0.8
+bass_sine_level = 0#2
+bitcrushed_melody_level = 0#1
+sine_melody_level = 0#1
+bass_drum_level = 1
+elec_flip_level = 0
+elec_hollow_kick_level = 0#1
+
+# :splash_delay was created to calculate the precise amount of time
+# necessary to sleep before triggering the 'splash/whoosh' noise 
+# in order to have its mid-point align exactly with the beginning of
+# a new bar or song segment etc.
+define :splash_delay do |pattern_length|
+  splash_duration = sample_duration(:drum_splash_hard)
+  splash_offset = pattern_length - splash_duration
+  splash_delay = (pattern_length - splash_offset).abs
+  splash_delay = splash_offset if pattern_length > splash_duration
+  splash_delay
+end
+
+# :splash is a percussion 'whoosh' function typed in from scratch
+# during a live performance to introduce different segments
+# of the song
+define :splash do |pattern_length |
+  in_thread(name: :sp) do
+    sleep splash_delay(pattern_length)
+    with_fx :reverb, room: 1, pre_amp: 2 do
+      with_fx :lpf, cutoff: 110 do
+        sample :drum_splash_hard, rate: -1
+        sleep sample_duration :drum_splash_hard
+        cue :splashed
+        sample :drum_splash_hard, rate: 1
+      end
+    end
+  end
+
+end
+
+# Are we allowing the splash/whoosh to be triggered?
+do_splash = false
+
+live_loop :bass_drum_loop do
+  with_fx :level, amp: bass_drum_level do |level|
+    #ctl_slide(level, slide_list) if audible() <- This function not used in this performance
+    3.times do
+      pl_smp :bd_ada, bass_drum_patt, false, false, 1/3
+    end
+    tick
+    splash(bass_drum_length) if look % 3 == 0 && do_splash
+  end
+end
+
+live_loop :elec_flip_loop do
+  sync :bass_drum_loop
+  with_fx :level, amp: elec_flip_level do |level|
+    #ctl_slide(level, slide_list) if audible()
+    4.times do
+      pl_smp :elec_flip, elec_flip_patt, false, true, 1/4
+    end
+  end
+end
+
+live_loop :elec_hollow_kick_loop do
+  params = {rate: 2, cutoff: 85, finish: 1}
+  sync :bass_drum_loop
+  with_fx :level, amp: elec_hollow_kick_level do |level|
+    #ctl_slide(level, slide_list) if audible()
+    3.times do
+      pl_smp :elec_hollow_kick, elec_hollow_kick_patt, params, false, false, 1/3
+    end
+  end
+end
+
+live_loop :bass_sine_loop do
+  synth_list = [
+    # {synth: name, params: params_hash}
+    {synth: :sine, params: {sustain: 0.75, release: 0.25}}
+  ]
+  #sync :splashed
+  with_fx :level, amp: bass_sine_level  do |level|
+    #ctl_slide(level, slide_list) if audible()
+    with_fx :reverb, room: 0.9 do
+      pl_synth synth_list, bass_sine_patt
+    end
+  end
+end
+
+live_loop :bitcrushed_melody_loop do
+  synth_list = [
+    # {synth: name, params: params_hash}
+    {synth: :sine, params: {sustain: 0.75, release: 0.25}}
+  ]
+  sync :bass_sine_loop
+  with_fx :level, amp: bitcrushed_melody_level  do |level|
+    #ctl_slide(level, slide_list) if audible()
+    with_fx :reverb, room: 0.9 do
+      with_fx :bitcrusher, pre_amp: 1, sample_rate: 4000, bits: 6 do
+        pl_synth synth_list, bitcrushed_melody_patt
+        sleep bass_sine_length
+      end
+    end
+  end
+end
+
+live_loop :sine_melody_loop do
+  synth_list = [
+    # {synth: name, params: params_hash}
+    {synth: :sine, params: {sustain: 0.75, release: 0.25, amp: 1}},
+    {synth: :sine, params: {sustain: 0.75, release: 0.25}},
+    #{synth: :tri, params: {}}
+  ]
+  sync :mod_pad_loop
+  with_fx :level, amp: sine_melody_level * 0.5  do |level|
+    #ctl_slide(level, slide_list) if audible()
+    with_fx :reverb, room: 0.9 do
+      in_thread do
+        with_transpose 0.1 do
+          pl_synth synth_list, sine_melody_patt
+        end
+      end
+      in_thread do
+        pl_synth synth_list, sine_melody_patt
+      end
+      in_thread do
+        with_transpose 0.1 do
+          pl_synth synth_list, sine_melody2_patt
+        end
+      end
+      in_thread do
+        pl_synth synth_list, sine_melody2_patt
+      end
+      sleep sine_melody_length
+    end
+  end
+end
+
+
+live_loop :mod_pad_loop do
+  synth_list = [
+    {synth: :beep, params: {}},
+    {synth: :mod_beep, params: {mod_phase: 0.33, mod_range: 5, mod_wave:1, cutoff: 30, mod_pulse_width: 0.5}}
+  ]
+  with_fx :level, amp: mod_pad_level do
+    with_fx :reverb, room: 0.8 do
+      with_fx :rlpf, cutoff: 85, res: 0.5 do
+        sync :splashed
+        pl_synth synth_list, mod_pad_patt
+      end
+    end
+  end
+end
+
+
+live_loop :breath_loop do
+  synth_list = [
+    # {synth: name, params: params_hash}
+    {synth: :hollow, params: {cutoff: 60, attack: 0, sustain: 0, release: 1, amp: 0.7, res: 0.9}},
+    {synth: :growl, params: {cutoff: 50, attack: 0, sustain: 0, release: 1, amp: 1.3, res: 0.4}},
+  ]
+  sync :mod_pad_loop
+  with_fx :level, amp: breath_level do
+    with_fx :reverb, room: 0.8 do
+      pl_synth synth_list, breath_patt
+    end
+  end
+  #splash(breath_length) if do_splash
+end
+
+live_loop :pad_loop do
+  synth_list = [
+    # {synth: name, params: params_hash}
+    {synth: :dark_ambience, params: {sustain: 0, release: 1}}
+  ]
+  sync :breath_loop
+  with_fx :level, amp: pad_level do |level|
+    #ctl_slide(level, slide_list) if audible()
+    pl_synth synth_list, pad_patt
+  end
+end
+
+live_loop :arp_loop do
+  synth_list = [
+    # {synth: name, params: params_hash}
+    {synth: :tri, params:{}}
+  ]
+  sync :breath_loop
+  in_thread do
+    with_fx :level, amp: arp_level do |level|
+      #ctl_slide(level, slide_list) if audible()
+      with_fx :reverb, room: 0.8 do
+        with_fx :echo, phase: 1, decay: 24 do
+          uncomment do
+            pl_synth synth_list, arp_patt
+          end
+          comment do
+            sleep arp_length
+            pl_synth synth_list, arp_patt3
+          end
+          comment do
+            pl_synth synth_list, arp_patt
+          end
+          comment do
+            sleep arp_length
+            pl_synth synth_list, arp_patt4
+          end
+        end
+      end
+    end
+  end
+  sleep pad_length
+end
