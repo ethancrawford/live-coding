@@ -3,7 +3,7 @@
 # Parts one and two both need to be placed in separate buffers in Sonic Pi.
 # Trigger Run on this part first, then on part two.
 # A video of the code in action is at https://vimeo.com/133740686
-  
+
 require 'mathn'
 
 tp = 1
@@ -42,8 +42,8 @@ define :ctl_slide do |ctl_focus, slide_list|
   slide_list.each_with_index do |slide, si|
     in_thread(name: "control_#{ctl_focus.id}_#{si}") do
       slide[:values].each do |val|
-        control ctl_focus, {"#{slide[:param]}_slide": val[:dur]}
-        control ctl_focus, {"#{slide[:param]}": val[:end_value]}
+        control ctl_focus, {:"#{slide[:param]}_slide" => val[:dur]}
+        control ctl_focus, {:"#{slide[:param]}" => val[:end_value]}
         sleep val[:dur]
       end
     end
