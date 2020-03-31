@@ -1,0 +1,188 @@
+# Welcome to Sonic Pi!
+
+# This is going to be a fairly mellow piece.
+
+# Hope you enjoy!
+
+live_loop :met do
+  sleep 2
+end
+
+define :wrap do |ns, seed, &block|
+  use_random_seed seed if seed
+  ns = ns || (chord :a3, :major, num_octaves: 2).shuffle.pick(6)
+  ds = (ring 8, 8)
+  2.times do
+    tick
+    block.call(ns, ds)
+    sleep ds.look
+  end
+  
+end
+
+live_loop :mel1, sync: :met do
+  stop
+  ds = (ring 0.125)
+  with_fx :reverb, room: 1 do
+    with_fx :rhpf, cutoff: 80 do
+      2.times do
+        use_random_seed (ring 234123121, 234123122, 234123123).tick(:r)
+        ns = (scale :a3, :major, num_octaves: 2).shuffle.pick(64)
+        ns.length.times do
+          tick
+          synth :sine, amp: rrand(0.1, 0.4) * (line 0, 1, steps: 128).ramp.tick(:l), note: ns.look, sustain: ds.look, release: 0.125, pan: -0.5
+          sleep ds.look
+        end
+      end
+    end
+  end
+end
+
+##| ll mel2, s mel1
+##|   sd = 864576542
+##|   wr(nil, seed) ns, ds
+##|     syn dtri, a 0.2, n ns.lk, rl ds.lk, pn -0.25
+
+##| ll mel3, s mel1
+##|   sd = 4562652
+##|   wr(nil, seed) ns, ds
+##|     syn dtri, a 0.2, n ns.lk - 12, rl ds.lk, pn 0.25
+
+live_loop :mel2, sync: :mel1 do
+  stop
+  seed = 864576542
+  wrap(nil, seed) do |ns, ds|
+    synth :dtri, amp: 0.2, note: ns.look, release: ds.look, pan: -0.25
+    
+  end
+end
+
+live_loop :mel3, sync: :mel1 do
+  stop
+  seed = 4562652
+  wrap(nil, seed) do |ns, ds|
+    synth :dtri, amp: 0.2, note: ns.look - 12, release: ds.look, pan: 0.25
+    
+  end
+end
+
+
+##| ll mel4, s mel1
+##| st
+##|   ns = (kn a2, 3, b1, 1)
+##|   use_s_dfs at 1, su 1, rl 6
+##|   wr(ns, nil) ns, ds
+##|     syn sine, a 0.3, n ns.lk
+##|     syn pr, a 0.4, ct 65, n ns.lk
+##|     sl ds.lk
+
+live_loop :mel4, sync: :mel1 do
+  stop
+  ns = (knit :a2, 3, :b1, 1)
+  use_synth_defaults attack: 1, sustain: 1, release: 6
+  wrap(ns, nil) do |ns, ds|
+    synth :sine, amp: 0.3, note: ns.look
+    synth :prophet, amp: 0.4, note: ns.look, cutoff: 65
+    
+  end
+end
+
+##| ll beat1, s mel1
+##|   st
+##|   hs = (spr 16, 16)
+##|   hs2 = (spr 4, 16)
+##|   hs3 = bl 0, 1, 1, 0, 0, 0, 0, 1.rp 2
+##|   hs.lth.t
+##|     tk
+##|     s elec_cymbal, a (kn 0.2, 2, 0.5, 1, 0.2, 1).lk, bs 0.125, hp 115, on hs.lk
+##|     s bd_ada, a 0.2, lp 70, on hs2.lk
+##|     s drum_cymbal_pedal, a rr(0.2, 0.5), lp 96, on hs.lk
+##|     sl 0.125
+##|   s drum_splash_s, a 0.5, lp 110
+##|   st
+
+live_loop :beat1, sync: :mel1 do
+  stop
+  hs = (spread 16, 16)
+  hs2 = (spread 4, 16)
+  hs3 = (bools 0, 1, 1, 0, 0, 0, 0, 1).repeat(2)
+  hs.length.times do
+    tick
+    sample :elec_cymbal, amp: (knit 0.2, 2, 0.5, 1, 0.2, 1).look, beat_stretch: 0.125, hpf: 115, on: hs.look
+    sample :bd_ada, amp: 0.3, lpf: 70, on: hs2.look
+    sample :drum_cymbal_pedal, amp: rrand(0.2, 0.5), lpf: 96, on: hs3.look
+    sleep 0.125
+  end
+  sample :drum_splash_soft, amp: 0.5, lpf: 110
+  stop
+end
+
+##| s1 = synth :saw, amp: 0.3
+##| s2 = synth :tri, amp: 0.2
+live_loop :mel5, sync: :mel1 do
+  stop
+  ns = (ring :e4, :r)
+  ds = (ring 4, 4)
+  with_fx :reverb, room: 1 do
+    with_fx :echo, phase: 0.375, decay: 4, mix: 0.5 do
+      with_fx :rbpf, centre: 90, centre_slide: 0.125, amp: 1.5 do |rb|
+        use_synth_defaults note: ns.look, cutoff: 70, attack: ds.look / 4, release: ds.look * 0.75
+        tick
+        s1 = synth :saw, amp: 0.3
+        s2 = synth :tri, amp: 0.2
+        sleep 1.875
+        control s1, note_slide: 0.125, note: :e5
+        control s2, note_slide: 0.125, note: :e5
+        control rb, centre: 70
+        sleep ds.look - 1.875
+      end
+    end
+  end
+end
+
+##| st
+##| syn bl, a 0.5, n ns.lk, cu 85
+##| syn bl, a 0.3, n ns.lk - 12, cu 85
+live_loop :mel6, sync: :mel1 do
+  stop
+  use_random_seed 27426542
+  ns = (scale :a3, :major, num_octaves: 2).shuffle.pick(32)
+  ds = (knit 0.125, 3, 0.25, 1, 0.125, 11).repeat(2).drop_last(4)+(ring 0.5)
+  with_fx :reverb, room: 1 do
+    with_fx :rhpf, cutoff: 90, mix: 0.75 do
+      use_synth_defaults sustain: ds.look, release: 0.5, pan: 0.5
+      ns.length.times do
+        tick
+        synth :blade, amp: 0.5, note: ns.look, cutoff: 85
+        synth :blade, amp: 0.3, note: ns.look - 12, cutoff: 85
+        sleep ds.look
+      end
+    end
+  end
+end
+
+##| st
+##| syn fm, a 0.7, n ns.lk, rl ds.lk + 0.25, dth 1, div 1, cu 90
+
+live_loop :mel7, sync: :mel1 do
+  stop
+  ds = (ring 2, 0.75, 1, 0.125, 0.125)
+  with_fx :reverb, room: 1 do
+    with_fx :rbpf, centre: 70, mix: 0 do |rb|
+      control rb, centre: 100, centre_slide: 64, mix_slide: 64, mix: 1
+      with_fx :tanh, mix: 0.2 do
+        16.times do
+          nsa = (scale :a1, :major)
+          ns = nsa.take(3).mirror.butlast
+          ns = ns.take(1) + nsa.shuffle.take(2) + ns.drop(3)
+          ns.length.times do
+            tick
+            synth :fm, amp: 0.7, note: ns.look, release: ds.look + 0.25, depth: 1, divisor: 1, cutoff: 90
+            
+            sleep ds.look
+          end
+        end
+      end
+    end
+  end
+end
